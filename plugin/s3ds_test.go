@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	s3ds "github.com/lighthouse-web3/go-ds-s3"
+	s3ds "github.com/Vanssh-k/go-ds-s3"
 )
 
 func TestS3PluginDatastoreConfigParser(t *testing.T) {

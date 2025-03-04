@@ -1,4 +1,4 @@
-module github.com/lighthouse-web3/go-ds-s3
+module github.com/Vanssh-k/go-ds-s3
 
 go 1.18
 

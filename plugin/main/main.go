@@ -1,7 +1,7 @@
 package main
 
 import (
-	plugin "github.com/lighthouse-web3/go-ds-s3/plugin"
+	plugin "github.com/Vanssh-k/go-ds-s3/plugin"
 )
 
 var Plugins = plugin.Plugins //nolint
