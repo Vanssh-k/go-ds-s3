@@ -2,11 +2,12 @@ package plugin
 
 import (
 	"fmt"
+	"time"
 
+	s3ds "github.com/Vanssh-k/go-ds-s3"
 	"github.com/ipfs/kubo/plugin"
 	"github.com/ipfs/kubo/repo"
 	"github.com/ipfs/kubo/repo/fsrepo"
-	s3ds "github.com/Vanssh-k/go-ds-s3"
 )
 
 var Plugins = []plugin.Plugin{
@@ -98,6 +99,56 @@ func (s3p S3Plugin) DatastoreConfigParser() fsrepo.ConfigFromMap {
 			}
 		}
 
+		// Cache configuration
+		var cacheConfig s3ds.CacheConfig
+		if v, ok := m["enableCache"]; ok {
+			if enableCache, ok := v.(bool); ok {
+				cacheConfig.EnableCache = enableCache
+			}
+		}
+
+		if cacheConfig.EnableCache {
+			// Memory cache size (default 1000 items)
+			if v, ok := m["memoryCacheSize"]; ok {
+				if size, ok := v.(float64); ok {
+					cacheConfig.MemoryCacheSize = int(size)
+				}
+			}
+			if cacheConfig.MemoryCacheSize == 0 {
+				cacheConfig.MemoryCacheSize = 1000
+			}
+
+			// Disk cache path (default: "./s3-cache")
+			if v, ok := m["diskCachePath"]; ok {
+				if path, ok := v.(string); ok {
+					cacheConfig.DiskCachePath = path
+				}
+			}
+			if cacheConfig.DiskCachePath == "" {
+				cacheConfig.DiskCachePath = "./s3-cache"
+			}
+
+			// TTL in hours (default 24 hours)
+			if v, ok := m["cacheTTL"]; ok {
+				if ttlHours, ok := v.(float64); ok {
+					cacheConfig.TTL = time.Duration(ttlHours) * time.Hour
+				}
+			}
+			if cacheConfig.TTL == 0 {
+				cacheConfig.TTL = 24 * time.Hour
+			}
+
+			// Cleanup interval in hours (default 1 hour)
+			if v, ok := m["cleanupInterval"]; ok {
+				if intervalHours, ok := v.(float64); ok {
+					cacheConfig.CleanupInterval = time.Duration(intervalHours) * time.Hour
+				}
+			}
+			if cacheConfig.CleanupInterval == 0 {
+				cacheConfig.CleanupInterval = 1 * time.Hour
+			}
+		}
+
 		return &S3Config{
 			cfg: s3ds.Config{
 				Region:              region,
@@ -110,12 +161,14 @@ func (s3p S3Plugin) DatastoreConfigParser() fsrepo.ConfigFromMap {
 				RegionEndpoint:      endpoint,
 				CredentialsEndpoint: credentialsEndpoint,
 			},
+			cacheConfig: cacheConfig,
 		}, nil
 	}
 }
 
 type S3Config struct {
-	cfg s3ds.Config
+	cfg         s3ds.Config
+	cacheConfig s3ds.CacheConfig
 }
 
 func (s3c *S3Config) DiskSpec() fsrepo.DiskSpec {
@@ -129,5 +182,10 @@ func (s3c *S3Config) DiskSpec() fsrepo.DiskSpec {
 }
 
 func (s3c *S3Config) Create(path string) (repo.Datastore, error) {
+	if s3c.cacheConfig.EnableCache {
+		// Use cached version
+		return s3ds.NewCachedS3Datastore(s3c.cfg, s3c.cacheConfig)
+	}
+	// Use original version without cache
 	return s3ds.NewS3Datastore(s3c.cfg)
 }
